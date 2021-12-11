@@ -12,11 +12,12 @@ model Lyon
 
 global {
 	shape_file building_shape_file <- file('../includes/lyon/polygons.shp');
-	shape_file free_spaces_shape_file <- shape_file("../includes/lyon/free spaces.shp");
-	shape_file open_area_shape_file <- shape_file("../includes/lyon/open area.shp");
-	shape_file pedestrian_paths_shape_file <- shape_file("../includes/lyon/pedestrian paths.shp");	
 	shape_file boudary_shape_file <- file('../includes/lyon/boundary.shp');
-	 
+	
+	shape_file free_spaces_shape_file <- shape_file("../includes/map1/free spaces.shp");
+	shape_file open_area_shape_file <- shape_file("../includes/map1/open area.shp");
+	shape_file pedestrian_paths_shape_file <- shape_file("../includes/map1/pedestrian paths.shp");
+
 	bool display_free_space <- false parameter: true;
 	bool display_force <- false parameter: true;
 	bool display_target <- false parameter: true;
@@ -29,7 +30,6 @@ global {
 	float P_pedestrian_consideration_distance <- 3.0 parameter: true ;
 	float P_tolerance_target <- 0.1 parameter: true;
 	bool P_use_geometry_target <- true parameter: true;
-	
 	
 	string P_model_type <- "simple" among: ["simple", "advanced"] parameter: true ; 
 	
@@ -47,10 +47,11 @@ global {
 	float P_lambda_SFM_simple <- 2.0 parameter: true category: "SFM simple" ;
 	float P_gama_SFM_simple parameter: true <- 0.35 category: "SFM simple" ;
 	float P_relaxion_SFM_simple parameter: true <- 0.54 category: "SFM simple" ;
-	float P_A_pedestrian_SFM_simple parameter: true <-4.5category: "SFM simple" ;
+	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ;
 	
 	geometry open_area;
 	graph network;
+	int nb_people <- 1000;
 	geometry shape <- envelope(building_shape_file);
 	
  	init {
@@ -63,7 +64,7 @@ global {
 		
 		network <- as_edge_graph(pedestrian_path);
 		
-		create people number: 500 {
+		create people number: nb_people {
 			location <- any_location_in(one_of(open_area));
 			obstacle_consideration_distance <-P_obstacle_consideration_distance;
 			pedestrian_consideration_distance <-P_pedestrian_consideration_distance;
@@ -108,7 +109,8 @@ species people skills: [pedestrian]{
 		if (final_waypoint = nil) {
 			do compute_virtual_path pedestrian_graph:network target: any_location_in(open_area) ;
 		}
-		do walk ;
+	
+		do walk;
 	}	
 	
 	aspect default {
@@ -116,8 +118,9 @@ species people skills: [pedestrian]{
 			draw circle(minimal_distance).contour color: color;
 		}
 		
-		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-		
+//		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
+		draw circle(1.0) color: color;
+			
 		if display_target and current_waypoint != nil {
 			draw line([location,current_waypoint]) color: color;
 		}
