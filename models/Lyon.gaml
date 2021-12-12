@@ -14,9 +14,9 @@ global {
 	shape_file building_shape_file <- file('../includes/lyon/polygons.shp');
 	shape_file boudary_shape_file <- file('../includes/lyon/boundary.shp');
 	
-	shape_file free_spaces_shape_file <- shape_file("../includes/map1/free spaces.shp");
-	shape_file open_area_shape_file <- shape_file("../includes/map1/open area.shp");
-	shape_file pedestrian_paths_shape_file <- shape_file("../includes/map1/pedestrian paths.shp");
+	shape_file free_spaces_shape_file <- shape_file("../includes/map2/free spaces.shp");
+	shape_file open_area_shape_file <- shape_file("../includes/map2/open area.shp");
+	shape_file pedestrian_paths_shape_file <- shape_file("../includes/map2/pedestrian paths.shp");
 
 	bool display_free_space <- false parameter: true;
 	bool display_force <- false parameter: true;
@@ -51,11 +51,23 @@ global {
 	
 	geometry open_area;
 	graph network;
-	int nb_people <- 1000;
+	int nb_people <- 2000;
+	string scenario <- "wandering" among: ["wandering", "attractions"] ;
+	
+	list<string> attractions <- ['Bellecour', 'Place des Jacobins', 'Grande Poste', 'Cour Saint-Martin'];
+	map<string, geometry> attraction_map;
+	
 	geometry shape <- envelope(building_shape_file);
 	
  	init {
- 		create building from: building_shape_file; 
+ 		create building from: building_shape_file {
+ 			color <- #grey;
+ 			if name in attractions {
+ 				attraction_map[name] <- shape;
+ 				color <- #red;
+ 			}
+ 		}
+ 		
 		open_area <- first(open_area_shape_file.contents);
 		create pedestrian_path from: pedestrian_paths_shape_file {
 			list<geometry> fs <- free_spaces_shape_file overlapping self;
@@ -104,10 +116,24 @@ global {
 species people skills: [pedestrian]{
 	rgb color <- rnd_color(255);
 	float speed <- gauss(5,1.5) #km/#h min: 2 #km/#h;
-
-	reflex move  {
+	point my_target;
+	string current_attraction;
+	building attractive_builing;
+	
+	reflex wander when: (scenario = "wandering") {
 		if (final_waypoint = nil) {
 			do compute_virtual_path pedestrian_graph:network target: any_location_in(open_area) ;
+		}
+	
+		do walk;
+	}	
+
+	reflex move_to_attraction when: (scenario = "attractions") {
+		if (final_waypoint = nil) {
+			current_attraction <- one_of(attractions - current_attraction);
+			attractive_builing <- first(building where (each.name = current_attraction));
+			my_target <- any_location_in(attractive_builing);
+			do compute_virtual_path pedestrian_graph:network target: my_target;
 		}
 	
 		do walk;
@@ -128,9 +154,8 @@ species people skills: [pedestrian]{
 }
 
 species building {
-	rgb color <- rnd_color(255);
 	aspect default {
-		draw shape color: color;
+		draw shape color: (name in attractions ? #red : #grey);
 	}
 }
 
@@ -146,10 +171,32 @@ species pedestrian_path skills: [pedestrian_road]{
 	}
 }
 
-experiment my_experiment type: gui {
+experiment move_to_attractions type: gui {
 	float minimum_cycle_duration <- 0.05;
+	action _init_ {
+		create simulation with: [scenario :: "attractions", nb_people::2000, 
+								 free_spaces_shape_file::shape_file("../includes/map3/free spaces.shp"), 
+								 pedestrian_paths_shape_file::shape_file("../includes/map3/pedestrian paths.shp")];
+	}
 	output {
-		display my_display type: opengl {
+		display my_display {
+			species building refresh: false;
+			species pedestrian_path aspect:free_area_aspect transparency: 0.5 ;
+			species pedestrian_path refresh: false;
+			species people;
+		}
+	}
+}
+
+experiment wandering type: gui {
+	float minimum_cycle_duration <- 0.05;
+	action _init_ {
+		create simulation with: [scenario :: "wandering", nb_people::2000, 
+								 free_spaces_shape_file::shape_file("../includes/map2/free spaces.shp"), 
+								 pedestrian_paths_shape_file::shape_file("../includes/map2/pedestrian paths.shp")];
+	}
+	output {
+		display my_display {
 			species building refresh: false;
 			species pedestrian_path aspect:free_area_aspect transparency: 0.5 ;
 			species pedestrian_path refresh: false;

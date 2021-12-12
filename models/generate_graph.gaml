@@ -23,7 +23,7 @@ global {
 	bool add_points_open_area <- true;//add points to open areas
  	bool random_densification <- false;//random densification (if true, use random points to fill open areas; if false, use uniform points), 
  	float min_dist_open_area <- 0.5;//min distance to considered an area as open area, 
- 	float density_open_area <- 0.001; //density of points in the open areas (float)
+ 	float density_open_area <- 0.0002; //density of points in the open areas (float)
  	bool clean_network <-  true; 
 	float tol_cliping <- 1.0; //tolerance for the cliping in triangulation (float; distance), 
 	float tol_triangulation <- 0.1; //tolerance for the triangulation 
@@ -46,9 +46,9 @@ global {
 			do initialize bounds:[open_area] distance: min(10.0,(wall closest_to self) distance_to self) masked_by: [wall] distance_extremity: 1.0;
 		}
 
-		save pedestrian_path type: shp to: "../includes/map/pedestrian paths.shp";
-		save open_area type: shp to: "../includes/map/open area.shp";
-		save pedestrian_path collect each.free_space type: shp to: "../includes/map/free spaces.shp";
+		save pedestrian_path type: shp to: "../includes/map2/pedestrian paths.shp";
+		save open_area type: shp to: "../includes/map2/open area.shp";
+		save pedestrian_path collect each.free_space type: shp to: "../includes/map2/free spaces.shp";
 	}
 }
 

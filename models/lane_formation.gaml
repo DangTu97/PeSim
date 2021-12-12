@@ -11,8 +11,7 @@ model laneformation
 /* Insert your model definition here */
 
 global {
-	geometry shape <- rectangle(150, 20);
-	float thickness <- 1.5;
+	geometry shape <- envelope(rectangle(100, 20));
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -38,37 +37,46 @@ global {
 	float P_lambda_SFM_simple <- 2.0 parameter: true category: "SFM simple" ;
 	float P_gama_SFM_simple parameter: true <- 0.35 category: "SFM simple" ;
 	float P_relaxion_SFM_simple parameter: true <- 0.54 category: "SFM simple" ;
-	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ;
+	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ; 
 	
-	geometry free_space <- copy(shape);
+	int flow parameter: true <- 1 min: 0 max: 3;
+	geometry free_space <- copy(polygon([{20, 10 - thickness/2}, {70, 10 - thickness/2}, {70, 18 + thickness/2}, {20, 18 + thickness/2}]));
+	
+	int nb_people -> length(people);
+	float thickness <- 2.0 #m;
+	float area <- 50.0*6.0;
+	float density -> 100*(nb_people + 1)/area;
+	float step <- 1.0 #s;
+	
+	int count;
+	int T;
+	float average_time;
 	
 	init {
+//		square 50m x 6m
 		create wall {
-			shape <- polyline([{20, 10}, {70, 10}]);
-			shape <- shape + thickness/2;
-			free_space <- free_space - shape;
+			shape <- polyline([{20, 10}, {70, 10}]) + thickness/2;
+			free_space <- free_space - (free_space inter shape);
 		}
 		
 		create wall {
-			shape <- polyline([{70, 18}, {20, 18}]);
-			shape <- shape + thickness/2;
-			free_space <- free_space - shape;
+			shape <- polyline([{70, 18}, {20, 18}])  + thickness/2;
+			free_space <- free_space - (free_space inter shape);
 		}
 		
 		create place {
-			location <- {20, 14};
-			shape <- circle(2.0);
+			location <- {20.5, 14};
+			shape <- rectangle(6, 1) rotated_by 90;
 		}
 		
 		create place {
-			location <- {70, 14};
-			shape <- circle(2.0);
+			location <- {69.5, 14};
+			shape <- rectangle(6, 1) rotated_by 90;
 		}
 	}
-	
-//	when: mod(cycle, 2)=0
+
 	reflex init_pedestrian_flow {
-		create people number: 1 {
+		create people number: flow {
 			obstacle_consideration_distance <-P_obstacle_consideration_distance;
 			pedestrian_consideration_distance <-P_pedestrian_consideration_distance;
 			shoulder_length <- P_shoulder_length;
@@ -109,10 +117,10 @@ global {
 				color <- #blue;
 			}
 		}
-		
-		if (cycle = 500) {
-			do pause;
-		}
+	}
+	
+	reflex compute_average_travel_time when: cycle > 50 {
+		average_time <- T/count;
 	}
 }
 
@@ -126,18 +134,21 @@ species people skills: [pedestrian] {
 	float speed <- gauss(5,1.5) #km/#h min: 2 #km/#h;
 	point my_target ;
 	rgb color;
+	int t;
 	
 	reflex move when: my_target != nil {
-//		do walk_to target: my_target;
 		do walk_to target: my_target bounds:free_space ;
-		if (self distance_to my_target < 3.0) {
+		t <- t + 1;
+		if (self distance_to my_target < 0.5) {
+			T <- T + t;
+			count <- count + 1;
 			do die;
 		}
 	}
 	
 	aspect base {
-		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-//		draw circle(shoulder_length) color:color;
+//		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
+		draw circle(shoulder_length/2) color:color;
 	}
 }
 
@@ -155,6 +166,14 @@ experiment my_experiment {
 			species wall;
 //			species place;
 			species people aspect:base;
+		}
+		monitor "Density (%)" value: density;
+		monitor "No. people" value: nb_people;
+		
+		display my_chart refresh: every(20#cycle){
+			chart "Average travel time"{
+				data "T" value: average_time;
+			}
 		}
 	}
 }

@@ -11,9 +11,7 @@ model crossroad
 /* Insert your model definition here */
 
 global {
-	geometry shape <- square(130);
-	float thickness <- 2.0 #m;
-	geometry free_space <- copy(shape);
+	geometry shape <- square(70#m);
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -40,50 +38,69 @@ global {
 	float P_gama_SFM_simple parameter: true <- 0.35 category: "SFM simple" ;
 	float P_relaxion_SFM_simple parameter: true <- 0.54 category: "SFM simple" ;
 	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ;
-	
+						
+//	horizontal space			
+	geometry free_space1 <- polygon([{10, 31}, {60, 31}, {60, 39}, {10, 39}]);
+//	vertical space
+	geometry free_space2 <- polygon([{31, 10}, {39, 10}, {39, 60}, {31, 60}]);
+									
 	map<int, int> target_map <- [1::2, 2::1, 0::3, 3::0];
+	int flow parameter: true <- 1 min: 0 max: 6;
+	int nb_people -> length(people);
+	float thickness <- 2.0 #m;
+	float step <- 1.0 #s;
+	float area <- 50.0*8.0*2.0 - 8.0*8.0;
+	float density -> 100*(nb_people + 1)/area;
+	
+	int count;
+	int T;
+	float average_time;
 	
 	init {
+//		shape of one direction: 50m x 8m
 		create wall {
-			shape <- polyline([{10, 50}, {60, 50}, {60, 0}]);
-			shape <- shape + thickness/2;
+			shape <- polyline([{10, 30}, {30, 30}, {30, 10}]) + thickness/2;
 		}
 		create wall {
-			shape <- polyline([{70, 0}, {70, 50}, {120, 50}]);
-			shape <- shape + thickness/2;
+			shape <- polyline([{40, 10}, {40, 30}, {60, 30}]) + thickness/2;
 		}
 		create wall {
-			shape <- polyline([{10, 60}, {60, 60}, {60, 110}]);
-			shape <- shape + thickness/2;
+			shape <- polyline([{40, 60}, {40, 40}, {60, 40}]) + thickness/2;
 		}
 		create wall {
-			shape <- polyline([{70, 110}, {70, 60}, {120, 60}]);
-			shape <- shape + thickness/2;
+			shape <- polyline([{10, 40}, {30, 40}, {30, 60}]) + thickness/2;
 		}
 		
 		create place {
-			location <- {65, 0};
-			shape <- circle(2.0);
+			location <- {35, 10.5};
+			shape <- rectangle(8, 1);
 		}
 		create place {
-			location <- {10, 55};
-			shape <- circle(2.0);
+			location <- {10.5, 35};
+			shape <- rectangle(8, 1) rotated_by 90;
 		}
 		create place {
-			location <- {120, 55};
-			shape <- circle(2.0);
+			location <- {59.5, 35};
+			shape <- rectangle(8, 1) rotated_by 90;
 		}
 		create place {
-			location <- {65, 110};
-			shape <- circle(2.0);
+			location <- {35, 59.5};
+			shape <- rectangle(8, 1);
+		}
+		
+		create free {
+			shape <- free_space1;
+		}
+		
+		create free {
+			shape <- free_space2;
 		}
 	}
 	
-//	when: mod(cycle, 2)=0
 	reflex init_pedestrian_flow {
-		create people number: 1 {
-			obstacle_consideration_distance <-P_obstacle_consideration_distance;
-			pedestrian_consideration_distance <-P_pedestrian_consideration_distance;
+		create people number: flow {
+			obstacle_consideration_distance <- P_obstacle_consideration_distance;
+			pedestrian_consideration_distance <- P_pedestrian_consideration_distance;
 			shoulder_length <- P_shoulder_length;
 			avoid_other <- P_avoid_other;
 			proba_detour <- P_proba_detour;
@@ -91,6 +108,7 @@ global {
 			tolerance_waypoint <- P_tolerance_waypoint;
 			
 			pedestrian_model <- P_model_type;
+			
 			if (pedestrian_model = "simple") {
 				A_pedestrians_SFM <- P_A_pedestrian_SFM_simple;
 				relaxion_SFM <- P_relaxion_SFM_simple;
@@ -110,22 +128,30 @@ global {
 			}
 			
 			pedestrian_species <- [people];
-			obstacle_species<-[wall];
+			obstacle_species <- [wall];
 			
 			if flip(0.5) {
 				location <- any_location_in(place(0));
 				my_target <- any_location_in(place(3));
 				color <- #red;
+				is_horizontal <- false;
 			} else {
 				location <- any_location_in(place(1));
 				my_target <- any_location_in(place(2));
 				color <- #blue;
+				is_horizontal <- true;
 			}
 		}
-		
-		if (cycle = 500) {
-			do pause;
-		}
+	}
+	
+	reflex compute_average_travel_time when: cycle > 50 {
+		average_time <- T/count;
+	}
+}
+
+species free {
+	aspect default {
+		draw shape color:#yellow;
 	}
 }
 
@@ -133,18 +159,28 @@ species people skills: [pedestrian] {
 	float speed <- gauss(5,1.5) #km/#h min: 2 #km/#h;
 	point my_target ;
 	rgb color;
+	int t;
+	bool is_horizontal;
 	
 	reflex move when: my_target != nil {
-//		do walk_to target: my_target;
-		do walk_to target: my_target bounds:free_space ;
-		if (self distance_to my_target < 3.0) {
+		if is_horizontal {
+			do walk_to target: my_target bounds:free_space1;
+		} else {
+			do walk_to target: my_target bounds:free_space2;
+		}
+		
+		
+		t <- t + 1;
+		if (self distance_to my_target < 0.5) {
+			T <- T + t;
+			count <- count + 1;
 			do die;
 		}
 	}
 	
 	aspect base {
 //		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-		draw circle(shoulder_length) color:color;
+		draw circle(shoulder_length/2) color:color;
 	}
 }
 
@@ -156,7 +192,7 @@ species place {
 
 species wall {
 	aspect default {
-		draw shape color: #yellow;
+		draw shape color: #grey;
 	}
 }
 
@@ -165,8 +201,18 @@ experiment my_experiment {
 	output {
 		display my_display {
 			species wall;
+//			species free;
 //			species place;
 			species people aspect:base;
+		}
+	
+		monitor "No. people" value: nb_people;
+		monitor "Density (%)" value: density;
+		
+		display my_chart refresh: every(20#cycle){
+			chart "Average travel time"{
+				data "T" value: average_time;
+			}
 		}
 	}
 }
