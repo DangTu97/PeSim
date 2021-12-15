@@ -12,6 +12,7 @@ model laneformation
 
 global {
 	geometry shape <- envelope(rectangle(100, 20));
+	float step <- 1 #s;	
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -39,14 +40,13 @@ global {
 	float P_relaxion_SFM_simple parameter: true <- 0.54 category: "SFM simple" ;
 	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ; 
 	
-	int flow parameter: true <- 1 min: 0 max: 3;
+	int flow parameter: true <- 1 min: 0 max: 10;
 	geometry free_space <- copy(polygon([{20, 10 - thickness/2}, {70, 10 - thickness/2}, {70, 18 + thickness/2}, {20, 18 + thickness/2}]));
 	
 	int nb_people -> length(people);
 	float thickness <- 2.0 #m;
 	float area <- 50.0*6.0;
-	float density -> 100*(nb_people + 1)/area;
-	float step <- 1.0 #s;
+	float density -> (nb_people + 1)/area;
 	
 	int count;
 	int T;
@@ -75,7 +75,7 @@ global {
 		}
 	}
 
-	reflex init_pedestrian_flow {
+	reflex init_pedestrian_flow when: every(1#s) {
 		create people number: flow {
 			obstacle_consideration_distance <-P_obstacle_consideration_distance;
 			pedestrian_consideration_distance <-P_pedestrian_consideration_distance;
@@ -119,7 +119,7 @@ global {
 		}
 	}
 	
-	reflex compute_average_travel_time when: cycle > 50 {
+	reflex compute_average_travel_time when: (count != 0) {
 		average_time <- T/count;
 	}
 }
@@ -147,8 +147,8 @@ species people skills: [pedestrian] {
 	}
 	
 	aspect base {
-//		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-		draw circle(shoulder_length/2) color:color;
+		draw circle(shoulder_length/2) color:color;		
+//		draw triangle(shoulder_length) color: #black rotate: heading + 90.0;
 	}
 }
 
@@ -165,9 +165,9 @@ experiment my_experiment {
 		display my_display {
 			species wall;
 //			species place;
-			species people aspect:base;
+			species people aspect:base ;
 		}
-		monitor "Density (%)" value: density;
+		monitor "Density " value: density;
 		monitor "No. people" value: nb_people;
 		
 		display my_chart refresh: every(20#cycle){

@@ -1,17 +1,17 @@
 /**
-* Name: crossroad
+* Name: laneformation
 * Based on the internal empty template. 
 * Author: DangTu
 * Tags: 
 */
 
 
-model crossroad
+model laneformation
 
 /* Insert your model definition here */
 
 global {
-	geometry shape <- square(70#m);
+	geometry shape <- envelope(rectangle(100, 20));
 	float step <- 1 #s;	
 	
 	float P_shoulder_length <- 0.45 parameter: true;
@@ -38,69 +38,50 @@ global {
 	float P_lambda_SFM_simple <- 2.0 parameter: true category: "SFM simple" ;
 	float P_gama_SFM_simple parameter: true <- 0.35 category: "SFM simple" ;
 	float P_relaxion_SFM_simple parameter: true <- 0.54 category: "SFM simple" ;
-	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ;
-						
-//	horizontal space			
-	geometry free_space1 <- polygon([{10, 31}, {60, 31}, {60, 39}, {10, 39}]);
-//	vertical space
-	geometry free_space2 <- polygon([{31, 10}, {39, 10}, {39, 60}, {31, 60}]);
-									
-	map<int, int> target_map <- [1::2, 2::1, 0::3, 3::0];
+	float P_A_pedestrian_SFM_simple parameter: true <- 4.5category: "SFM simple" ; 
+	
 	int flow parameter: true <- 1 min: 0 max: 10;
+	geometry free_space <- copy(polygon([{20, 10 - thickness/2}, {70, 10 - thickness/2}, {70, 18 + thickness/2}, {20, 18 + thickness/2}]));
+	
 	int nb_people -> length(people);
 	float thickness <- 2.0 #m;
-	float area <- 50.0*8.0*2.0 - 8.0*8.0;
+	float area <- 50.0*6.0;
 	float density -> (nb_people + 1)/area;
 	
 	int count;
 	int T;
 	float average_time;
 	
+	bool show_trajectory <- false;
+	bool save_trajectories <- false;
+	
 	init {
-//		shape of one direction: 50m x 8m
+//		square 50m x 6m
 		create wall {
-			shape <- polyline([{10, 30}, {30, 30}, {30, 10}]) + thickness/2;
+			shape <- polyline([{20, 10}, {70, 10}]) + thickness/2;
+			free_space <- free_space - (free_space inter shape);
 		}
+		
 		create wall {
-			shape <- polyline([{40, 10}, {40, 30}, {60, 30}]) + thickness/2;
-		}
-		create wall {
-			shape <- polyline([{40, 60}, {40, 40}, {60, 40}]) + thickness/2;
-		}
-		create wall {
-			shape <- polyline([{10, 40}, {30, 40}, {30, 60}]) + thickness/2;
+			shape <- polyline([{70, 18}, {20, 18}])  + thickness/2;
+			free_space <- free_space - (free_space inter shape);
 		}
 		
 		create place {
-			location <- {35, 10.5};
-			shape <- rectangle(8, 1);
-		}
-		create place {
-			location <- {10.5, 35};
-			shape <- rectangle(8, 1) rotated_by 90;
-		}
-		create place {
-			location <- {59.5, 35};
-			shape <- rectangle(8, 1) rotated_by 90;
-		}
-		create place {
-			location <- {35, 59.5};
-			shape <- rectangle(8, 1);
+			location <- {20.5, 14};
+			shape <- rectangle(6, 1) rotated_by 90;
 		}
 		
-		create free {
-			shape <- free_space1;
-		}
-		
-		create free {
-			shape <- free_space2;
+		create place {
+			location <- {69.5, 14};
+			shape <- rectangle(6, 1) rotated_by 90;
 		}
 	}
-	
+
 	reflex init_pedestrian_flow when: every(1#s) {
 		create people number: flow {
-			obstacle_consideration_distance <- P_obstacle_consideration_distance;
-			pedestrian_consideration_distance <- P_pedestrian_consideration_distance;
+			obstacle_consideration_distance <-P_obstacle_consideration_distance;
+			pedestrian_consideration_distance <-P_pedestrian_consideration_distance;
 			shoulder_length <- P_shoulder_length;
 			avoid_other <- P_avoid_other;
 			proba_detour <- P_proba_detour;
@@ -108,7 +89,6 @@ global {
 			tolerance_waypoint <- P_tolerance_waypoint;
 			
 			pedestrian_model <- P_model_type;
-			
 			if (pedestrian_model = "simple") {
 				A_pedestrians_SFM <- P_A_pedestrian_SFM_simple;
 				relaxion_SFM <- P_relaxion_SFM_simple;
@@ -128,18 +108,16 @@ global {
 			}
 			
 			pedestrian_species <- [people];
-			obstacle_species <- [wall];
+			obstacle_species<-[wall];
 			
 			if flip(0.5) {
 				location <- any_location_in(place(0));
-				my_target <- any_location_in(place(3));
+				my_target <- any_location_in(place(1));
 				color <- #red;
-				is_horizontal <- false;
 			} else {
 				location <- any_location_in(place(1));
-				my_target <- any_location_in(place(2));
+				my_target <- any_location_in(place(0));
 				color <- #blue;
-				is_horizontal <- true;
 			}
 		}
 	}
@@ -147,11 +125,20 @@ global {
 	reflex compute_average_travel_time when: (count != 0) {
 		average_time <- T/count;
 	}
+	
+	reflex save_traj  when: save_trajectories {
+		if(cycle = 0) {
+			save [cycle,int(self),self.location.x,self.location.y,self.location.z]	type: csv to: "trajec.traj" rewrite: true;					
+		}
+		ask people {
+			save [cycle,int(self),self.location.x,self.location.y,self.location.z]	type: csv to: "trajec.traj" rewrite: false;		
+		}
+	}
 }
 
-species free {
+species place {
 	aspect default {
-		draw shape color:#yellow;
+		draw shape color:#white border:#black;
 	}
 }
 
@@ -160,15 +147,11 @@ species people skills: [pedestrian] {
 	point my_target ;
 	rgb color;
 	int t;
-	bool is_horizontal;
+	list<point> trajectory <- [];
 	
 	reflex move when: my_target != nil {
-		if is_horizontal {
-			do walk_to target: my_target bounds:free_space1;
-		} else {
-			do walk_to target: my_target bounds:free_space2;
-		}
-		
+		do walk_to target: my_target bounds:free_space ;
+		add location to: trajectory;
 		
 		t <- t + 1;
 		if (self distance_to my_target < 0.5) {
@@ -179,16 +162,14 @@ species people skills: [pedestrian] {
 	}
 	
 	aspect base {
-//		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-		draw circle(shoulder_length/2) color:color;
+		draw circle(shoulder_length/2) color:color;	
+		if(show_trajectory){
+			draw line(trajectory) color: color;		
+		}	
+//		draw triangle(shoulder_length) color: #black rotate: heading + 90.0;
 	}
 }
 
-species place {
-	aspect default {
-		draw shape color:#white border:#black;
-	}
-}
 
 species wall {
 	aspect default {
@@ -197,17 +178,19 @@ species wall {
 }
 
 experiment my_experiment {
+	parameter "Save  trajectories" var: save_trajectories category: "Trajectories";
+	parameter "Show  trajectories" var: show_trajectory category: "Trajectories";
+	
+	
 	float minimum_cycle_duration <- 0.15;
 	output {
 		display my_display {
 			species wall;
-//			species free;
 //			species place;
-			species people aspect:base;
+			species people aspect:base ;
 		}
-	
+		monitor "Density " value: density;
 		monitor "No. people" value: nb_people;
-		monitor "Density" value: density;
 		
 		display my_chart refresh: every(20#cycle){
 			chart "Average travel time"{
@@ -216,4 +199,3 @@ experiment my_experiment {
 		}
 	}
 }
-

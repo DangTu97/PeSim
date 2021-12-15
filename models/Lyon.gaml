@@ -11,12 +11,14 @@ model Lyon
 /* Insert your model definition here */
 
 global {
+	string ped_map <- "map1" among: ["map1","map2"];
+	
 	shape_file building_shape_file <- file('../includes/lyon/polygons.shp');
 	shape_file boudary_shape_file <- file('../includes/lyon/boundary.shp');
 	
-	shape_file free_spaces_shape_file <- shape_file("../includes/map2/free spaces.shp");
-	shape_file open_area_shape_file <- shape_file("../includes/map2/open area.shp");
-	shape_file pedestrian_paths_shape_file <- shape_file("../includes/map2/pedestrian paths.shp");
+	shape_file free_spaces_shape_file <- shape_file("../includes/"+ped_map+"/free spaces.shp");
+	shape_file open_area_shape_file <- shape_file("../includes/"+ped_map+"/open area.shp");
+	shape_file pedestrian_paths_shape_file <- shape_file("../includes/"+ped_map+"/pedestrian paths.shp");
 
 	bool display_free_space <- false parameter: true;
 	bool display_force <- false parameter: true;
@@ -175,8 +177,8 @@ experiment move_to_attractions type: gui {
 	float minimum_cycle_duration <- 0.05;
 	action _init_ {
 		create simulation with: [scenario :: "attractions", nb_people::2000, 
-								 free_spaces_shape_file::shape_file("../includes/map3/free spaces.shp"), 
-								 pedestrian_paths_shape_file::shape_file("../includes/map3/pedestrian paths.shp")];
+								 free_spaces_shape_file::shape_file("../includes/"+ped_map+"/free spaces.shp"), 
+								 pedestrian_paths_shape_file::shape_file("../includes/"+ped_map+"/pedestrian paths.shp")];
 	}
 	output {
 		display my_display {
@@ -192,8 +194,8 @@ experiment wandering type: gui {
 	float minimum_cycle_duration <- 0.05;
 	action _init_ {
 		create simulation with: [scenario :: "wandering", nb_people::2000, 
-								 free_spaces_shape_file::shape_file("../includes/map2/free spaces.shp"), 
-								 pedestrian_paths_shape_file::shape_file("../includes/map2/pedestrian paths.shp")];
+								 free_spaces_shape_file::shape_file("../includes/"+ped_map+"/free spaces.shp"), 
+								 pedestrian_paths_shape_file::shape_file("../includes/"+ped_map+"/pedestrian paths.shp")];
 	}
 	output {
 		display my_display {

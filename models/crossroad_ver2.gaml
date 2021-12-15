@@ -12,6 +12,7 @@ model crossroadver2
 
 global {
 	geometry shape <- square(70#m);
+	float step <- 1.0 #s;	
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -49,9 +50,8 @@ global {
 	int flow parameter: true <- 1 min: 0 max: 12;
 	int nb_people -> length(people);
 	float thickness <- 2.0 #m;
-	float step <- 1.0 #s;
 	float area <- 50.0*8.0*2.0 - 8.0*8.0;
-	float density -> 100*(nb_people + 1)/area;
+	float density -> (nb_people + 1)/area;
 	
 	int count;
 	int T;
@@ -98,7 +98,7 @@ global {
 		}
 	}
 	
-	reflex init_pedestrian_flow {
+	reflex init_pedestrian_flow when: every(1#s) {
 		create people number: flow {
 			obstacle_consideration_distance <- P_obstacle_consideration_distance;
 			pedestrian_consideration_distance <- P_pedestrian_consideration_distance;
@@ -139,7 +139,7 @@ global {
 		}
 	}
 	
-	reflex compute_average_travel_time when: cycle > 50 {
+	reflex compute_average_travel_time when: (count != 0) {
 		average_time <- T/count;
 	}
 }
@@ -201,7 +201,7 @@ experiment my_experiment {
 		}
 	
 		monitor "No. people" value: nb_people;
-		monitor "Density (%)" value: density;
+		monitor "Density" value: density;
 		
 		display my_chart refresh: every(20#cycle){
 			chart "Average travel time"{

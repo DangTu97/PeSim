@@ -12,6 +12,7 @@ model bottleneck
 
 global {
 	geometry shape <- square(70);
+	float step <- 1#m;
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -58,7 +59,7 @@ global {
 		}
 		
 		create destination_zone {
-			shape <- polygon([{29, 65.5}, {31, 65.5}, {31, 67.5}, {29, 67.5}]);	
+			shape <- polygon([{28, 65.5}, {32, 65.5}, {32, 67.5}, {28, 67.5}]);	
 		}
 		
 		create people number: nb_people {
@@ -106,7 +107,8 @@ species people skills: [pedestrian] {
 	reflex move when: my_target != nil {
 //		do walk_to target: my_target;
 		do walk_to target: my_target bounds:free_space ;
-		if (self distance_to my_target < 0.5) {
+		// if (self distance_to my_target < 0.5) {
+		if (self overlaps first(destination_zone))	{
 			do die;
 		}
 	}
