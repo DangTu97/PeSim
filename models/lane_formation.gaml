@@ -26,8 +26,8 @@ global {
 	
 	float P_A_pedestrian_SFM_advanced parameter: true <- 0.16 category: "SFM advanced" ;
 	float P_A_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_pedestrian_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
+	float P_B_pedestrian_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
+	float P_B_obstacles_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
 	float P_relaxion_SFM_advanced  parameter: true <- 0.5 category: "SFM advanced" ;
 	float P_gama_SFM_advanced parameter: true <- 0.35 category: "SFM advanced" ;
 	float P_lambda_SFM_advanced <- 0.1 parameter: true category: "SFM advanced" ;
@@ -48,6 +48,7 @@ global {
 	float area <- 50.0*6.0;
 	float density -> (nb_people + 1)/area;
 	
+	bool display_force <- false parameter: true;
 	int count;
 	int T;
 	float average_time;
@@ -149,6 +150,19 @@ species people skills: [pedestrian] {
 	aspect base {
 		draw circle(shoulder_length/2) color:color;		
 //		draw triangle(shoulder_length) color: #black rotate: heading + 90.0;
+		if  display_force {
+			loop op over: forces.keys {
+				if (species(agent(op)) = wall ) {
+					draw line([location, location + point(forces[op])]) color: #red end_arrow: 0.1;
+				}
+				else if ((agent(op)) = self ) {
+					draw line([location, location + point(forces[op])]) color: #blue end_arrow: 0.1;
+				} 
+				else {
+					draw line([location, location + point(forces[op])]) color: #green end_arrow: 0.1;
+				}
+			}
+		}
 	}
 }
 

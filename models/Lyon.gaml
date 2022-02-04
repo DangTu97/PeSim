@@ -11,7 +11,7 @@ model Lyon
 /* Insert your model definition here */
 
 global {
-	string ped_map <- "map1" among: ["map1","map2"];
+	string ped_map <- "map3" among: ["map1","map2", "map3"];
 	
 	shape_file building_shape_file <- file('../includes/lyon/polygons.shp');
 	shape_file boudary_shape_file <- file('../includes/lyon/boundary.shp');
@@ -37,8 +37,8 @@ global {
 	
 	float P_A_pedestrian_SFM_advanced parameter: true <- 0.16 category: "SFM advanced" ;
 	float P_A_obstacles_SFM_advanced parameter: true <- 1.9 category: "SFM advanced" ;
-	float P_B_pedestrian_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_obstacles_SFM_advanced parameter: true <- 1.0 category: "SFM advanced" ;
+	float P_B_pedestrian_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
+	float P_B_obstacles_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
 	float P_relaxion_SFM_advanced  parameter: true <- 0.5 category: "SFM advanced" ;
 	float P_gama_SFM_advanced parameter: true <- 0.35 category: "SFM advanced" ;
 	float P_lambda_SFM_advanced <- 0.1 parameter: true category: "SFM advanced" ;
@@ -74,6 +74,9 @@ global {
 		create pedestrian_path from: pedestrian_paths_shape_file {
 			list<geometry> fs <- free_spaces_shape_file overlapping self;
 			free_space <- fs first_with (each covers shape); 
+			if free_space = nil {
+				free_space <- shape + 0.5;
+			}
 		}
 		
 		network <- as_edge_graph(pedestrian_path);
@@ -120,24 +123,25 @@ species people skills: [pedestrian]{
 	float speed <- gauss(5,1.5) #km/#h min: 2 #km/#h;
 	point my_target;
 	string current_attraction;
-	building attractive_builing;
+	building attractive_building;
 	
 	reflex wander when: (scenario = "wandering") {
 		if (final_waypoint = nil) {
 			do compute_virtual_path pedestrian_graph:network target: any_location_in(open_area) ;
 		}
-	
+//		if (final_waypoint != n	il) { do walk; }
 		do walk;
 	}	
 
 	reflex move_to_attraction when: (scenario = "attractions") {
 		if (final_waypoint = nil) {
 			current_attraction <- one_of(attractions - current_attraction);
-			attractive_builing <- first(building where (each.name = current_attraction));
-			my_target <- any_location_in(attractive_builing);
+			attractive_building <- first(building where (each.name = current_attraction));
+			my_target <- any_location_in(attractive_building);
 			do compute_virtual_path pedestrian_graph:network target: my_target;
 		}
-	
+		
+//		if (final_waypoint != nil) { do walk; }
 		do walk;
 	}	
 	
@@ -176,7 +180,7 @@ species pedestrian_path skills: [pedestrian_road]{
 experiment move_to_attractions type: gui {
 	float minimum_cycle_duration <- 0.05;
 	action _init_ {
-		create simulation with: [scenario :: "attractions", nb_people::2000, 
+		create simulation with: [scenario :: "attractions", nb_people::3000, 
 								 free_spaces_shape_file::shape_file("../includes/"+ped_map+"/free spaces.shp"), 
 								 pedestrian_paths_shape_file::shape_file("../includes/"+ped_map+"/pedestrian paths.shp")];
 	}
@@ -193,7 +197,7 @@ experiment move_to_attractions type: gui {
 experiment wandering type: gui {
 	float minimum_cycle_duration <- 0.05;
 	action _init_ {
-		create simulation with: [scenario :: "wandering", nb_people::2000, 
+		create simulation with: [scenario :: "wandering", nb_people::3000, 
 								 free_spaces_shape_file::shape_file("../includes/"+ped_map+"/free spaces.shp"), 
 								 pedestrian_paths_shape_file::shape_file("../includes/"+ped_map+"/pedestrian paths.shp")];
 	}

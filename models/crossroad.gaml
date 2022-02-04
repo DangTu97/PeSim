@@ -22,12 +22,12 @@ global {
 	float P_tolerance_waypoint <- 0.5 parameter: true;
 	bool P_use_geometry_waypoint <- true parameter: true;
 	
-	string P_model_type <- "simple" among: ["simple", "advanced"] parameter: true ; 
+	string P_model_type <- "advanced" among: ["simple", "advanced"] parameter: true ; 
 	
 	float P_A_pedestrian_SFM_advanced parameter: true <- 0.16 category: "SFM advanced" ;
 	float P_A_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_pedestrian_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
+	float P_B_pedestrian_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
+	float P_B_obstacles_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
 	float P_relaxion_SFM_advanced  parameter: true <- 0.5 category: "SFM advanced" ;
 	float P_gama_SFM_advanced parameter: true <- 0.35 category: "SFM advanced" ;
 	float P_lambda_SFM_advanced <- 0.1 parameter: true category: "SFM advanced" ;

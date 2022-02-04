@@ -11,8 +11,8 @@ model bottleneck
 /* Insert your model definition here */
 
 global {
-	geometry shape <- square(70);
-	float step <- 1#m;
+	geometry shape <- square(150);
+	float step <- 0.2 #s;
 	
 	float P_shoulder_length <- 0.45 parameter: true;
 	float P_proba_detour <- 1.0 parameter: true ;
@@ -22,12 +22,12 @@ global {
 	float P_tolerance_waypoint <- 0.5 parameter: true;
 	bool P_use_geometry_waypoint <- true parameter: true;
 	
-	string P_model_type <- "simple" among: ["simple", "advanced"] parameter: true ; 
+	string P_model_type <- "advanced" among: ["simple", "advanced"] parameter: true ; 
 	
 	float P_A_pedestrian_SFM_advanced parameter: true <- 0.16 category: "SFM advanced" ;
 	float P_A_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_pedestrian_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
-	float P_B_obstacles_SFM_advanced parameter: true <- 0.1 category: "SFM advanced" ;
+	float P_B_pedestrian_SFM_advanced parameter: true <- 1.0 category: "SFM advanced" ;
+	float P_B_obstacles_SFM_advanced parameter: true <- 3.0 category: "SFM advanced" ;
 	float P_relaxion_SFM_advanced  parameter: true <- 0.5 category: "SFM advanced" ;
 	float P_gama_SFM_advanced parameter: true <- 0.35 category: "SFM advanced" ;
 	float P_lambda_SFM_advanced <- 0.1 parameter: true category: "SFM advanced" ;
@@ -42,20 +42,19 @@ global {
 	
 	bool display_force <- false parameter: true;
 	bool display_circle_min_dist <- true parameter: true;
-	int nb_people <- 500;
+	int nb_people <- 1000;
 	geometry free_space <- copy(shape);
 	
 	init {
-		create bound {
-			shape <- polygon([{0, 0}, {0, 70}, {70, 70}, {70, 0}]);
-		}
 		
 		create wall {
-//			shape <- polyline([{29, 60}, {10, 60}, {10, 10}, {60, 10}, {60, 60}, {31, 60}]);
-//			shape <- polyline([ {10, 60}, {10, 10}, {60, 10}, {60, 60}, {10, 60}]);
 			shape <- polyline([{27, 60}, {10, 60}, {10, 10}, {60, 10}, {60, 60}, {33, 60}]);
 			shape <- shape + 1.0;
-			free_space <- free_space - shape;
+			free_space <- free_space - (free_space inter (shape + P_shoulder_length));
+		}
+		
+		create free {
+			shape <- free_space;
 		}
 		
 		create destination_zone {
@@ -93,30 +92,28 @@ global {
 			pedestrian_species <- [people];
 			obstacle_species<-[wall];
 			
-			location <- any_location_in(polygon([{12, 12}, {58, 12}, {58, 58}, {12, 58}]));
+			location <- any_location_in(polygon([{15, 15}, {55, 15}, {55, 55}, {15, 55}]));
 			my_target <- any_location_in(one_of(destination_zone));
 		}
 	}
 }
 
 species people skills: [pedestrian] {
-	rgb color <- rnd_color(255);
+	rgb color <- #red;
 	float speed <- gauss(5,1.5) #km/#h min: 2 #km/#h;
 	point my_target ;
+//	bool display_force <- false;
 	
 	reflex move when: my_target != nil {
-//		do walk_to target: my_target;
 		do walk_to target: my_target bounds:free_space ;
-		// if (self distance_to my_target < 0.5) {
 		if (self overlaps first(destination_zone))	{
 			do die;
 		}
 	}
 	
 	aspect base {
-		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
-//		draw circle(shoulder_length) color: color;
-//		draw circle(pedestrian_consideration_distance) at:location border:#red wireframe: true;
+//		draw triangle(shoulder_length) color: color rotate: heading + 90.0;
+		draw circle(shoulder_length/2) color: color;
 		if  display_force {
 			loop op over: forces.keys {
 				if (species(agent(op)) = wall ) {
@@ -145,17 +142,17 @@ species wall {
 	}
 }
 
-species bound {
+species free {
 	aspect default {
-		draw shape color: rgb(245, 245, 245);
+		draw shape color: #red;
 	}
 }
 
 experiment my_experiment {
-	float minimum_cycle_duration <- 0.15;
+	float minimum_cycle_duration <- 0.05;
 	output {
 		display my_display {
-			species bound;
+//			species free;
 			species wall;
 			species destination_zone;
 			species people aspect: base;
