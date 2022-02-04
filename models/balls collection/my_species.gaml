@@ -85,6 +85,7 @@ species people skills: [pedestrian] {
 	string selection_strategy;
 	int nb_shortest_candidates;
 	float distance_search;
+	list<ball> ball_list;
 	
 	// strategic level: goal selection
 	action select_goal {
@@ -92,6 +93,8 @@ species people skills: [pedestrian] {
 			do select_shortest_goal;
 		} else if (selection_strategy = "minimum_cost") {
 			do select_minimum_cost_goal;
+		} else if (selection_strategy = "ball_list") {
+			do select_from_ball_list;
 		} else {
 			do select_random_goal;
 		}
@@ -105,7 +108,7 @@ species people skills: [pedestrian] {
 	
 	// choose a shortest ball to collect
 	action select_shortest_goal {
-		target_ball <- my_ball_set.existing_balls closest_to(self);
+		target_ball <- my_ball_set.existing_balls closest_to(location);
 		my_goal <- target_ball.location;
 	}
 	
@@ -125,7 +128,7 @@ species people skills: [pedestrian] {
 			density_value <- length(candidate_ball.neighboring_pedestrians) / candidate_ball.distance_search; 
 			
 			// long-term value factor
-			ball_value <- length(candidate_ball neighbors_at distance_search) / distance_search;
+			ball_value <- distance_search / (length(candidate_ball neighbors_at distance_search) + 1);
 			
 			float cost <- greed_factor*euclidean_distance + density_value + ball_value;
 			cost_values <- cost_values + cost;
@@ -136,13 +139,27 @@ species people skills: [pedestrian] {
 		my_goal <- target_ball.location;
 	}
 	
+	action select_from_ball_list {
+		if ((ball_list != nil) and length(ball_list) > 0) {
+			target_ball <- ball_list closest_to(self);
+			my_goal <- target_ball.location;
+		}
+	}
+	
 	action action_when_arrive {
-		// collect target ball and remove it from enviroment
+		// remove ball from shared set of balls
 		remove target_ball from: my_ball_set.existing_balls;
+		
+		// remove ball from ball list
+		if ((ball_list != nil) and length(ball_list) > 0) {
+			remove target_ball from: ball_list;
+		}
+		
+		// collect target ball and remove it from enviroment
 		ask target_ball {
 			do die;
 		}
-	
+		
 		path_plan <- nil;
 		
 		// choose new target ball if there exists balls to collect
@@ -157,10 +174,6 @@ species people skills: [pedestrian] {
 		point end <- network.vertices closest_to(my_goal);
 
 		path_plan <- network path_between(start, end);
-	
-//		if (path_plan != nil and path_plan.shape != nil) {
-//			next_target <- path_plan.shape.points[0];
-//		}
 		
 		if (path_plan != nil and path_plan.shape != nil) {
 			next_target <- path_plan.shape.points[0];

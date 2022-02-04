@@ -15,7 +15,9 @@ global {
 	geometry shape <- envelope(square(100 #m));
 	int nb_balls <- 2000;
 	float r <- 0.22 #m;
-	int nb_people <- 200;
+	int nb_people <- 100;
+	bool is_colabrated <- false;
+	list<rgb> groups_colabrated <- [#blue];
 	
 	init {
 		// create balls
@@ -40,10 +42,9 @@ global {
 			selection_strategy <- "minimum_cost";
 			nb_shortest_candidates <- 3;
 			distance_search <- 10.0 #m;
-			greed_factor <- 0.05;
+			greed_factor <- 0.1;
 			location <- any_location_in(shape);
 			color <- flip(0.5) ? #blue : #red;
-			
 			my_ball_set <- (color = #blue) ? first(aggregate_agent where (each.type = "blue")) :
 											 first(aggregate_agent where (each.type = "red"));
 											 		 
@@ -78,6 +79,35 @@ global {
 				minimal_distance <- P_minimal_distance_advanced;
 			}
 		}
+		
+		if (is_colabrated) {
+			loop group_color over: groups_colabrated {
+				// clusters by index
+				list<ball> balls <- ball where (each.color = group_color);
+				list<people> group <- people where (each.color = group_color);
+				list<list<float>> coordinates;
+				loop b over: balls {
+					coordinates <- coordinates + [[b.location.x, b.location.y]];
+				}
+				
+				list<list<int>> cluster_indices <- kmeans(coordinates, length(group));
+				loop indices over: cluster_indices {
+					point centroid;
+					loop idx over: indices {
+						centroid <- centroid + {balls[idx].location.x, balls[idx].location.y};
+					}
+					centroid <- centroid / length(indices);
+					people ag <- group closest_to(centroid);
+					ask ag {
+						selection_strategy <- "ball_list";
+						loop idx over: indices {
+							ball_list <- ball_list + balls[idx];
+						}
+					}
+					remove ag from: group;
+				}
+			}
+		}
 	}
 	
 	reflex stop when: length(ball) = 0 {
@@ -86,7 +116,24 @@ global {
 		loop ped over: people {
 			total_travel_cost <- total_travel_cost + ped.travel_cost;
 		}
+		write "Average traveled distance:";
 		write total_travel_cost / nb_people;
+		
+		float red;
+		list<people> red_group <- people where (each.color = #red);
+		loop ped over: red_group {
+			red <- red + ped.travel_cost;
+		}
+		write "Average traveled distance of red group:";
+		write red / length(red_group);
+		
+		float blue;
+		list<people> blue_group <- people where (each.color = #blue);
+		loop ped over: blue_group {
+			blue <- blue + ped.travel_cost;
+		}
+		write "Average traveled distance of blue group:";
+		write blue / length(blue_group);
 	}
 }
 

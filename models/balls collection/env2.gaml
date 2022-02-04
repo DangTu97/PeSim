@@ -19,6 +19,7 @@ global {
 	int nb_people <- 200;
 	int nb_points <- 300;
 	int nb_obstacle <- 3;
+	bool is_colabrated <- true;
 	
 	graph network;
 	
@@ -121,6 +122,34 @@ global {
 				minimal_distance <- P_minimal_distance_advanced;
 			}
 		}
+		
+		if (is_colabrated) {
+			rgb group_color <- #blue;
+			// clusters by index
+			list<ball> balls <- ball where (each.color = group_color);
+			list<people> group <- people where (each.color = group_color);
+			list<list<float>> coordinates;
+			loop b over: balls {
+				coordinates <- coordinates + [[b.location.x, b.location.y]];
+			}
+			
+			list<list<int>> cluster_indices <- kmeans(coordinates, length(group));
+			loop indices over: cluster_indices {
+				point centroid;
+				loop idx over: indices {
+					centroid <- centroid + {balls[idx].location.x, balls[idx].location.y};
+				}
+				centroid <- centroid / length(indices);
+				people ag <- group closest_to(centroid);
+				ask ag {
+					selection_strategy <- "ball_list";
+					loop idx over: indices {
+						ball_list <- ball_list + balls[idx];
+					}
+				}
+				remove ag from: group;
+			}
+		}
 	}
 	
 	reflex stop when: length(ball) = 0 {
@@ -129,7 +158,24 @@ global {
 		loop ped over: people {
 			total_travel_cost <- total_travel_cost + ped.travel_cost;
 		}
+		write "Average traveled distance:";
 		write total_travel_cost / nb_people;
+		
+		float red;
+		list<people> red_group <- people where (each.color = #red);
+		loop ped over: red_group {
+			red <- red + ped.travel_cost;
+		}
+		write "Average traveled distance of red group:";
+		write red / length(red_group);
+		
+		float blue;
+		list<people> blue_group <- people where (each.color = #blue);
+		loop ped over: blue_group {
+			blue <- blue + ped.travel_cost;
+		}
+		write "Average traveled distance of blue group:";
+		write blue / length(blue_group);
 	}
 }
 
