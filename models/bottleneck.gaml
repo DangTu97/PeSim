@@ -50,7 +50,8 @@ global {
 		create wall {
 			shape <- polyline([{27, 60}, {10, 60}, {10, 10}, {60, 10}, {60, 60}, {33, 60}]);
 			shape <- shape + 1.0;
-			free_space <- free_space - (free_space inter (shape + P_shoulder_length));
+//			free_space <- free_space - (free_space inter (shape + P_shoulder_length));
+			free_space <- free_space - (free_space inter shape);
 		}
 		
 		create free {

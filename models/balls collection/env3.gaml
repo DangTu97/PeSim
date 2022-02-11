@@ -1,32 +1,68 @@
-/**
-* Name: env1
+/***
+* Name: env3
 * Based on the internal empty template. 
 * Author: DangTu
-* Tags: Delaunay triangulation, navigation graph, ball collection.
-* Description: two groups are assigned to collect a given set of balls randomly located on the environment without obstacles.
-*/
+* Tags: 
+* Description: two rooms exchange without navigation graph
+***/
 
-model env1
+
+model env3
 import 'my_species.gaml'
 import 'global_variables.gaml'
-/* Insert your model definition here */
 
+/* Insert your model definition here */
 global {
-	geometry shape <- envelope(square(100 #m));
-	int nb_balls <- 3000;
-	float r <- 0.22 #m;
+	float env_width <- 100.0 #m;
+	float env_length <- 50.0 #m;
+	float corridor_width <- 5.0 #m;
+	float corridor_length <- 10.0 #m;
+	
 	int nb_people <- 200;
+	int nb_balls <- 1000;
+	
 	bool is_colabrated <- false;
 	list<rgb> groups_colabrated <- [#blue];
+			
+	geometry shape <- envelope(rectangle(env_width, env_length));
+	geometry free_space <- copy(shape);
 	
 	init {
-		// create balls
+		create obstacle number: 1 {
+			shape <- polyline([{0, 0}, {env_width, 0}, {env_width, env_length}, {0, env_length}, {0, 0}]);
+			shape <- shape + 1;
+			free_space <- free_space - (free_space inter shape);
+		}
+		
+		create obstacle {
+			location <- {env_width/2, (env_length - 1) - (env_length - 2 - corridor_width)/4};
+			shape <- rectangle(corridor_length, (env_length - 2 - corridor_width)/2);
+			free_space <- free_space - (free_space inter shape);
+		}
+		
+		create obstacle {
+			location <- {env_width/2, 1 + (env_length - 2 - corridor_width)/4};
+			shape <- rectangle(corridor_length, (env_length - 2 - corridor_width)/2);
+			free_space <- free_space - (free_space inter shape);
+		}
+
+		create target_space {
+			color <- #blue;
+			shape <- polygon([{3, 3}, {env_width/2 - corridor_length/2 - 2, 3}, {env_width/2 - corridor_length/2 - 2, env_length - 3}, {3, env_length - 3}]);
+		}
+		
+		create target_space {
+			color <- #red;
+			shape <- polygon([{env_width/2 + corridor_length/2 + 2, 3}, {env_width - 3, 3}, {env_width - 3, env_length - 3}, {env_width/2 + corridor_length/2 + 2, env_length - 3}]);
+		}
+		
 		create ball number: nb_balls {
-			location <- any_location_in(shape);
-			radius <- r;
+			radius <- 0.22 #m;
 			color <- flip(0.5) ? #blue : #red;
 			distance_search <- 10.0 #m;
+			location <- (color = #blue) ? any_location_in(target_space(0).shape) : any_location_in(target_space(1).shape);
 		}
+		
 		create aggregate_agent {
 			type <- "blue";
 			existing_balls <- (ball where (each.color = #blue));
@@ -43,8 +79,8 @@ global {
 			nb_shortest_candidates <- 10;
 			distance_search <- 10.0 #m;
 			greed_factor <- 0.1;
-			location <- any_location_in(shape);
 			color <- flip(0.5) ? #blue : #red;
+			location <- (color = #blue) ? any_location_in(target_space(1).shape) : any_location_in(target_space(0).shape);
 			my_ball_set <- (color = #blue) ? first(aggregate_agent where (each.type = "blue")) :
 											 first(aggregate_agent where (each.type = "red"));
 											 		 
@@ -57,7 +93,7 @@ global {
 			use_geometry_waypoint <- P_use_geometry_target;
 			tolerance_waypoint <- P_tolerance_target;
 			pedestrian_species <- [people];
-			obstacle_species<- [];
+			obstacle_species<- [obstacle];
 			
 			pedestrian_model <- P_model_type;
 			
@@ -108,41 +144,26 @@ global {
 				}
 			}
 		}
+		
 	}
 	
-	reflex stop when: length(ball) = 0 {
-		do pause;
-		float total_travel_cost;
-		loop ped over: people {
-			total_travel_cost <- total_travel_cost + ped.travel_cost;
-		}
-		write "Average traveled distance:";
-		write total_travel_cost / nb_people;
-		
-		float red;
-		list<people> red_group <- people where (each.color = #red);
-		loop ped over: red_group {
-			red <- red + ped.travel_cost;
-		}
-		write "Average traveled distance of red group:";
-		write red / length(red_group);
-		
-		float blue;
-		list<people> blue_group <- people where (each.color = #blue);
-		loop ped over: blue_group {
-			blue <- blue + ped.travel_cost;
-		}
-		write "Average traveled distance of blue group:";
-		write blue / length(blue_group);
+}
+
+species target_space {
+	rgb color;
+	aspect default {
+		draw shape color: color;
 	}
 }
 
-experiment env1 {
-	float minimum_cycle_duration <- 0.05;
+experiment env3 {
+	float minimum_cycle_duration <- 0.1;
 	output {
 		display my_display {
+			species obstacle;
 			species ball;
 			species people;
+//			species target_space;
 		}
 	}
 }

@@ -19,7 +19,9 @@ global {
 	int nb_people <- 200;
 	int nb_points <- 300;
 	int nb_obstacle <- 3;
-	bool is_colabrated <- true;
+	
+	bool is_colabrated <- false;
+	list<rgb> groups_colabrated <- [#blue];
 	
 	graph network;
 	
@@ -82,7 +84,7 @@ global {
 		// create people
 		create people number: nb_people {
 			selection_strategy <- "shortest_ball";
-			nb_shortest_candidates <- 3;
+			nb_shortest_candidates <- 10;
 			distance_search <- 10.0 #m;
 			greed_factor <- 0.05;
 			location <- any_location_in(free_space);
@@ -100,7 +102,7 @@ global {
 			use_geometry_waypoint <- P_use_geometry_target;
 			tolerance_waypoint <- P_tolerance_target;
 			pedestrian_species <- [people];
-			obstacle_species<- [ball, obstacle];
+			obstacle_species <- [obstacle];
 			
 			pedestrian_model <- P_model_type;
 			
@@ -124,30 +126,31 @@ global {
 		}
 		
 		if (is_colabrated) {
-			rgb group_color <- #blue;
-			// clusters by index
-			list<ball> balls <- ball where (each.color = group_color);
-			list<people> group <- people where (each.color = group_color);
-			list<list<float>> coordinates;
-			loop b over: balls {
-				coordinates <- coordinates + [[b.location.x, b.location.y]];
-			}
-			
-			list<list<int>> cluster_indices <- kmeans(coordinates, length(group));
-			loop indices over: cluster_indices {
-				point centroid;
-				loop idx over: indices {
-					centroid <- centroid + {balls[idx].location.x, balls[idx].location.y};
+			loop group_color over: groups_colabrated {
+				// clusters by index
+				list<ball> balls <- ball where (each.color = group_color);
+				list<people> group <- people where (each.color = group_color);
+				list<list<float>> coordinates;
+				loop b over: balls {
+					coordinates <- coordinates + [[b.location.x, b.location.y]];
 				}
-				centroid <- centroid / length(indices);
-				people ag <- group closest_to(centroid);
-				ask ag {
-					selection_strategy <- "ball_list";
+				
+				list<list<int>> cluster_indices <- kmeans(coordinates, length(group));
+				loop indices over: cluster_indices {
+					point centroid;
 					loop idx over: indices {
-						ball_list <- ball_list + balls[idx];
+						centroid <- centroid + {balls[idx].location.x, balls[idx].location.y};
 					}
+					centroid <- centroid / length(indices);
+					people ag <- group closest_to(centroid);
+					ask ag {
+						selection_strategy <- "ball_list";
+						loop idx over: indices {
+							ball_list <- ball_list + balls[idx];
+						}
+					}
+					remove ag from: group;
 				}
-				remove ag from: group;
 			}
 		}
 	}

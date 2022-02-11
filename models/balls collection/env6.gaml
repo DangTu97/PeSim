@@ -1,32 +1,64 @@
-/**
-* Name: env1
+/***
+* Name: env6
 * Based on the internal empty template. 
 * Author: DangTu
-* Tags: Delaunay triangulation, navigation graph, ball collection.
-* Description: two groups are assigned to collect a given set of balls randomly located on the environment without obstacles.
-*/
+* Tags: 
+* Description: balls collection in 4 rooms with navigation
+***/
 
-model env1
+
+model env6
 import 'my_species.gaml'
 import 'global_variables.gaml'
-/* Insert your model definition here */
 
+/* Insert your model definition here */
 global {
-	geometry shape <- envelope(square(100 #m));
-	int nb_balls <- 3000;
-	float r <- 0.22 #m;
+	float env_width <- 200.0 #m;
+	float env_length <- 100.0 #m;
+	geometry shape <- envelope(rectangle(env_width, env_length));
+	geometry free_space <- copy(shape);
+	geometry outdoor <- copy(shape);
+	
 	int nb_people <- 200;
+	int nb_balls <- 5000;
+	int nb_points <- 800;
+	
 	bool is_colabrated <- false;
 	list<rgb> groups_colabrated <- [#blue];
 	
 	init {
-		// create balls
+		float door_width <- 8.0 #m;
+		float room_width <- 50.0 #m;
+		float room_length <- 30.0 #m;
+		float thickness <- 1.0 #m;
+		float x <- (room_width - door_width)/2;
+		loop i from: 0 to: 1 {
+			loop j from: 0 to: 1 {
+				create obstacle {
+					location <- {(env_width/2)*i + env_width/4, (env_length/2)*j + env_length/4};
+					geometry rec <- rectangle(room_width, room_length);
+					shape <- polyline(rec.points) - polyline([rec.points[0] + (rec.points[1] - rec.points[0])*x/room_width, 
+															  rec.points[0] + (rec.points[1] - rec.points[0])*(x + door_width)/room_width]);
+					shape <- shape + thickness;
+					outdoor <- outdoor - (outdoor inter (rec + thickness));
+
+					create target_space {
+						location <- {(env_width/2)*i + env_width/4, (env_length/2)*j + env_length/4};
+						shape <- rectangle(room_width - 2*thickness, room_length - 2*thickness);
+					}
+				}
+			}
+		}
+		
+		free_space <- free_space - union(obstacle);
+		
 		create ball number: nb_balls {
-			location <- any_location_in(shape);
-			radius <- r;
+			radius <- 0.22 #m;
 			color <- flip(0.5) ? #blue : #red;
 			distance_search <- 10.0 #m;
+			location <- any_location_in(union(target_space));
 		}
+		
 		create aggregate_agent {
 			type <- "blue";
 			existing_balls <- (ball where (each.color = #blue));
@@ -37,14 +69,50 @@ global {
 			existing_balls <- (ball where (each.color = #red));
 		}
 		
+		list<point> my_points;
+		loop i from: 1 to: nb_points {
+			if (i < nb_points * 3 / 5) {
+				my_points <- my_points + any_location_in(union(target_space));
+			} else {
+				my_points <- my_points + any_location_in(outdoor);
+			}
+		}
+		
+		list<geometry> triangulations <- triangulate(my_points);
+		
+		list<list<point>> endpoints;
+		// remove duplicating edges
+		loop triangle over: triangulations {
+			loop i from: 0 to: 2 {
+				list<point> e <- [triangle.points[i], triangle.points[mod(i+1, 3)]];
+				if !(e in endpoints) and !(reverse(e) in endpoints) {
+					endpoints <- endpoints + [e];
+				}
+			}
+		}
+		list<geometry> edges;
+		loop endp over: endpoints {
+			if !(line(endp) intersects union(obstacle)) {
+				edges <- edges + line(endp);
+			}
+		}
+		network <- as_edge_graph(edges);
+		write "Number of vertices: " + length(network.vertices);
+		write "Number of edges: " + length(network.edges); 
+		
+		create graph_network {
+			nodes <- network.vertices;
+			edges <- network.edges;
+		}
+		
 		// create people
 		create people number: nb_people {
 			selection_strategy <- "shortest_ball";
 			nb_shortest_candidates <- 10;
 			distance_search <- 10.0 #m;
 			greed_factor <- 0.1;
-			location <- any_location_in(shape);
 			color <- flip(0.5) ? #blue : #red;
+			location <- any_location_in(outdoor);
 			my_ball_set <- (color = #blue) ? first(aggregate_agent where (each.type = "blue")) :
 											 first(aggregate_agent where (each.type = "red"));
 											 		 
@@ -57,7 +125,7 @@ global {
 			use_geometry_waypoint <- P_use_geometry_target;
 			tolerance_waypoint <- P_tolerance_target;
 			pedestrian_species <- [people];
-			obstacle_species<- [];
+			obstacle_species <- [obstacle];
 			
 			pedestrian_model <- P_model_type;
 			
@@ -135,14 +203,26 @@ global {
 		write "Average traveled distance of blue group:";
 		write blue / length(blue_group);
 	}
+	
 }
 
-experiment env1 {
+species target_space {
+	rgb color;
+	geometry geom_free;
+	aspect default {
+		draw shape color: color;
+	}
+}
+
+experiment env6 {
 	float minimum_cycle_duration <- 0.05;
 	output {
 		display my_display {
+			species obstacle;
+			species graph_network;
 			species ball;
 			species people;
+//			species target_space;
 		}
 	}
 }

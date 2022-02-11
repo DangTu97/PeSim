@@ -17,6 +17,15 @@ model myspecies
 global {
 	graph network;
 	geometry free_space;
+	bool is_reproduced;
+}
+
+species room_space {
+	rgb color;
+	geometry geom_free;
+	aspect default {
+		draw shape color: color;
+	}
 }
 
 species graph_network {
@@ -47,15 +56,10 @@ species ball {
 	float distance_search;
 	float mean_distance;
 	list<people> neighboring_pedestrians;
+	room_space current_room;
 	
 	reflex update_infor {
 		neighboring_pedestrians <- people at_distance distance_search;
-		
-//		float sum_distance;
-//		loop ped over: neighboring_pedestrians {
-//			sum_distance <- sum_distance + distance_to(location, ped.location);
-//		}
-//		mean_distance <- sum_distance/length(neighboring_pedestrians);
 	}
 	
 	aspect default {
@@ -89,6 +93,7 @@ species people skills: [pedestrian] {
 	
 	// strategic level: goal selection
 	action select_goal {
+		path_plan <- nil;
 		if (selection_strategy = "shortest_ball") {
 			do select_shortest_goal;
 		} else if (selection_strategy = "minimum_cost") {
@@ -155,12 +160,25 @@ species people skills: [pedestrian] {
 			remove target_ball from: ball_list;
 		}
 		
+		if is_reproduced {
+			list<room_space> room <- (room_space where (each.color = self.color)) - target_ball.current_room;
+			create ball {
+				color <- myself.color;
+				radius <- 0.22 #m;
+				distance_search <- 10.0 #m;
+				current_room <- first(room);
+				location <- any_location_in(current_room);
+				
+				ask myself {
+					my_ball_set.existing_balls <- my_ball_set.existing_balls + myself;
+				}
+			}
+		}
+		
 		// collect target ball and remove it from enviroment
 		ask target_ball {
 			do die;
 		}
-		
-		path_plan <- nil;
 		
 		// choose new target ball if there exists balls to collect
 		if length(my_ball_set.existing_balls) > 0 {
@@ -170,15 +188,35 @@ species people skills: [pedestrian] {
 	
 	// tactical level: path planning
 	action plan_path {
-		point start <- network.vertices closest_to(location);
-		point end <- network.vertices closest_to(my_goal);
-
-		path_plan <- network path_between(start, end);
-		
-		if (path_plan != nil and path_plan.shape != nil) {
-			next_target <- path_plan.shape.points[0];
-		} else {
-			next_target <- my_goal;
+		if (union(obstacle) != nil) {
+			point start;
+			point end;
+			list<point> start_candidates <- network.vertices closest_to(location, nb_shortest_candidates);
+			list<point> end_candidates <- network.vertices closest_to(my_goal, nb_shortest_candidates);
+	
+			loop s over: start_candidates {
+				if !(line(location, s) intersects union(obstacle)) {
+					start <- s;
+					break;
+				}
+			}
+	
+			loop e over: end_candidates {
+				if !(line(e, my_goal) intersects union(obstacle)) {
+					end <- e;
+					break;
+				}
+			}
+			
+			if (start != nil and end != nil and start != end) {
+				path_plan <- network path_between(start, end);
+			}
+			
+			if (path_plan != nil and path_plan.shape != nil) {
+				next_target <- path_plan.shape.points[0];
+			} else {
+				next_target <- nil;
+			}
 		}
 	}
 	
@@ -187,8 +225,9 @@ species people skills: [pedestrian] {
 			int idx <- path_plan.shape.points index_of next_target;
 			if (idx < length(path_plan.shape.points) - 1) {
 				next_target <- path_plan.shape.points[idx + 1];
-			} else {
-				next_target <- my_goal;
+			} 
+			else {
+				next_target <- nil;
 			}
 		} 
 	}
@@ -208,11 +247,14 @@ species people skills: [pedestrian] {
 		
 		// operational level: SFM
 		if (next_target = nil) {
-			do walk_to target: my_goal;
+//			do walk_to target: my_goal;
+			do walk_to target: my_goal bounds: free_space;
 		} else {
 			// next target is the current waypoint
-			do walk_to target: next_target;
-			if (distance_to(location, next_target) < 0.5#m) {
+//			do walk_to target: next_target;
+			do walk_to target: next_target bounds: free_space;
+			
+			if (distance_to(location, next_target) < 1.0 #m) {
 				do select_new_next_target;
 			}
 		}
